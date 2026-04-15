@@ -1,0 +1,15 @@
+# ETL & Database
+requests==2.31.0
+beautifulsoup4==4.12.2
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.23
+
+# AI & NLP
+torch==2.2.0
+transformers==4.35.0
+pandas==2.1.1
+numpy==1.26.0
+
+# Dashboard & Utilities
+streamlit==1.28.0
+python-dotenv==1.0.0
