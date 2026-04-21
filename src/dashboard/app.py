@@ -1,22 +1,32 @@
+import sys
+import os
+
+# Agregamos la raíz del proyecto al PATH de Python
+# Esto sube dos niveles desde src/dashboard/ hasta la raíz del repo
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import streamlit as st
+# Ahora sí, el import que fallaba ya debería funcionar:
+from src.models.risk_detector import RiskDetector
+
 import pandas as pd
 from sqlalchemy import create_engine
 import plotly.express as px
-import sys
-import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuración de página
 st.set_page_config(page_title="Fintech Risk Monitor", layout="wide")
 
 # Conexión a DB
-db_url = "postgresql://postgres:TU_PASSWORD@localhost:5432/fintech_monitor"
+db_url = os.getenv("DB_URL", "postgresql://postgres:admin123@localhost:5432/fintech_monitor")
 engine = create_engine(db_url)
 
 st.title("🛡️ Fintech Sentiment & Risk Monitor")
 st.markdown("Monitoreo en tiempo real de salud reputacional mediante FinBERT.")
 
 # Sidebar - KPIs de Riesgo
-from src.models.risk_detector import RiskDetector
 detector = RiskDetector()
 metrics = detector.calculate_risk_metrics()
 

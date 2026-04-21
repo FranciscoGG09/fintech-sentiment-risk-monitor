@@ -1,7 +1,11 @@
 import torch
 from transformers import BertTokenizer, BertForSequenceClassification
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import pandas as pd
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class SentimentAnalyzer:
     def __init__(self):
@@ -10,8 +14,8 @@ class SentimentAnalyzer:
         self.tokenizer = BertTokenizer.from_pretrained(self.model_name)
         self.model = BertForSequenceClassification.from_pretrained(self.model_name)
         
-        # Configuración de base de datos (SQLAlchemy es mejor para integrarse con Pandas)
-        self.db_url = "postgresql://postgres:TU_PASSWORD@localhost:5432/fintech_monitor"
+        # La URL de SQLAlchemy debe llevar la contraseña así:
+        self.db_url = os.getenv("DB_URL", "postgresql://postgres:admin123@localhost:5432/fintech_monitor")
         self.engine = create_engine(self.db_url)
 
     def analyze_pending_articles(self):
@@ -48,12 +52,21 @@ class SentimentAnalyzer:
         
         print("Análisis de sentimiento completado.")
 
-    def update_db(self, article_id, sentiment, score):
+    def update_db(self, article_id, label, score):
+        query = text("""
+            UPDATE financial_articles 
+            SET sentiment_label = :label, 
+                sentiment_score = :score 
+            WHERE id = :id
+        """)
+        
         with self.engine.connect() as conn:
-            conn.execute(
-                "UPDATE financial_articles SET sentiment_label = %s, sentiment_score = %s WHERE id = %s",
-                (sentiment, score, article_id)
-            )
+            conn.execute(query, {
+                "label": label,
+                "score": float(score),
+                "id": int(article_id)
+            })
+            conn.commit() # Muy importante para que los cambios se guarden
 
 if __name__ == "__main__":
     analyzer = SentimentAnalyzer()

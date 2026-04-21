@@ -1,10 +1,14 @@
 import pandas as pd
 from sqlalchemy import create_engine
 from datetime import datetime, timedelta
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class RiskDetector:
     def __init__(self):
-        self.db_url = "postgresql://postgres:TU_PASSWORD@localhost:5432/fintech_monitor"
+        self.db_url = os.getenv("DB_URL", "postgresql://postgres:admin123@localhost:5432/fintech_monitor")
         self.engine = create_engine(self.db_url)
 
     def calculate_risk_metrics(self):

@@ -13,3 +13,7 @@ numpy==1.26.0
 # Dashboard & Utilities
 streamlit==1.28.0
 python-dotenv==1.0.0
+plotly
+
+psycopg2-binary
+beautifulsoup4

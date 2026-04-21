@@ -4,80 +4,76 @@ import psycopg2
 from datetime import datetime
 import sys
 import os
+import re
+from dotenv import load_dotenv
 
-# Añadimos el path para poder importar nuestra función de limpieza
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-from src.utils.text_cleaner import clean_financial_text
-
-# Configuración de la conexión
+# Configuración de la base de datos
+# Asegúrate de usar la contraseña que configuramos en psql
 DB_CONFIG = {
     "host": "localhost",
     "database": "fintech_monitor",
     "user": "postgres",
-    "password": "TU_PASSWORD_AQUI" # ¡No olvides poner tu password!
+    "password": "admin123" 
 }
 
 def get_db_connection():
+    """Establece conexión con PostgreSQL."""
     return psycopg2.connect(**DB_CONFIG)
 
 def scrape_finance_news():
     url = "https://finance.yahoo.com/news/"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
 
     print(f"[{datetime.now()}] Iniciando scraping en {url}...")
     
     try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
+        response = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Yahoo Finance usa estas clases para sus contenedores de noticias
-        articles = soup.find_all('div', {'class': 'Py(14px)'}) 
-        
-        conn = get_db_connection()
-        cur = conn.cursor()
+
+        # Buscamos TODOS los enlaces que tengan un h3 dentro (estructura común de Yahoo)
+        # O enlaces que tengan clases de titulares
+        links = soup.find_all('a')
         
         new_count = 0
-        for item in articles:
-            title_tag = item.find('h3')
-            link_tag = item.find('a')
-            desc_tag = item.find('p')
-            
-            if title_tag and link_tag:
-                raw_title = title_tag.text.strip()
-                raw_link = link_tag['href']
-                link = "https://finance.yahoo.com" + raw_link if not raw_link.startswith('http') else raw_link
-                raw_content = desc_tag.text.strip() if desc_tag else "Sin descripción disponible"
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        for a in links:
+            title = a.text.strip()
+            link = a.get('href', '')
+
+            # FILTROS CRÍTICOS:
+            # 1. El título debe ser largo (más de 30 caracteres para que sea una noticia real)
+            # 2. El link debe contener '/news/',='/m/' o '/article' (estructura actual de Yahoo)
+            if len(title) > 30 and any(keyword in link for keyword in ['/news/', '/m/', '/article']):
                 
-                # --- TRANSFORMACIÓN (Limpieza) ---
-                clean_title = clean_financial_text(raw_title)
-                clean_content = clean_financial_text(raw_content)
+                if not link.startswith('http'):
+                    link = 'https://finance.yahoo.com' + link
                 
-                # --- CARGA (Inserción Única) ---
-                try:
-                    cur.execute(
-                        """INSERT INTO financial_articles 
-                           (source, title, url, content) 
-                           VALUES (%s, %s, %s, %s) 
-                           ON CONFLICT (url) DO NOTHING""",
-                        ('Yahoo Finance', clean_title, link, clean_content)
-                    )
-                    
-                    if cur.rowcount > 0:
-                        new_count += 1
-                except Exception as e:
-                    print(f"Error al insertar noticia: {e}")
-                    conn.rollback()
+                # Evitar duplicados en la misma ejecución
+                query = """
+                INSERT INTO financial_articles (source, title, url, content)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (url) DO NOTHING;
+                """
+                cur.execute(query, ('Yahoo Finance', title, link, title))
+                
+                if cur.rowcount > 0:
+                    new_count += 1
+                    print(f" -> Capturado: {title[:70]}...")
 
         conn.commit()
         cur.close()
         conn.close()
-        print(f"[{datetime.now()}] Proceso terminado. Se agregaron {new_count} noticias nuevas limpias.")
+        
+        print(f"[{datetime.now()}] Proceso terminado. Se agregaron {new_count} noticias reales.")
+        return new_count
 
     except Exception as e:
-        print(f"Error crítico en el scraper: {e}")
+        print(f"Error: {e}")
+        return 0
 
 if __name__ == "__main__":
     scrape_finance_news()
