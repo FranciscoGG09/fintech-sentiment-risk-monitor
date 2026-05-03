@@ -100,7 +100,7 @@ Sigue estos pasos para desplegar el monitor en tu entorno local:
 
 Desarrollado por Francisco González.
 
-    LinkedIn: linkedin.com/in/francisco-gonzalez
+    LinkedIn: www.linkedin.com/in/francisco-javi-gonzalez-garcia
 
     GitHub: @FranciscoGG09
    
